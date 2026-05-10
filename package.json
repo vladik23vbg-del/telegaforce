@@ -1,12 +1,13 @@
 {
   "name": "telegaforce-server",
   "version": "1.0.0",
+  "description": "Server for Telegaforce messenger",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "ws": "^8.16.0",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "ws": "^8.13.0"
   }
 }
