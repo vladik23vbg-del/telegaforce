@@ -2,13 +2,12 @@ const http = require('http');
 const WebSocket = require('ws');
 
 const server = http.createServer((req, res) => {
-  // Health-check для Render (отвечает на HTTP-запросы)
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('Telegaforce server is running');
 });
 
 const wss = new WebSocket.Server({ server });
-const clients = new Map(); // username -> WebSocket
+const clients = new Map();
 
 wss.on('connection', (ws) => {
   let username = null;
@@ -19,7 +18,6 @@ wss.on('connection', (ws) => {
       if (msg.type === 'login') {
         username = msg.username;
         clients.set(username, ws);
-        // Оповещаем всех об онлайне
         broadcast({ type: 'status', online: Array.from(clients.keys()) });
       } else if (msg.type === 'message') {
         const target = clients.get(msg.to);
