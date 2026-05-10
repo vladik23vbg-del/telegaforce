@@ -4,28 +4,34 @@ const WebSocket = require('ws');
 const server = http.createServer();
 const wss = new WebSocket.Server({ server });
 
-const clients = new Map();
+const clients = new Map(); // username -> WebSocket
 
 wss.on('connection', (ws) => {
     let username = null;
 
-    ws.on('message', (data) => {
-        const msg = JSON.parse(data);
-        if (msg.type === 'login') {
-            username = msg.username;
-            clients.set(username, ws);
-            broadcast({ type: 'status', online: Array.from(clients.keys()) });
-        } else if (msg.type === 'message') {
-            const target = clients.get(msg.to);
-            if (target && target.readyState === WebSocket.OPEN) {
-                target.send(JSON.stringify({
-                    type: 'message',
-                    from: username,
-                    to: msg.to,
-                    text: msg.text,
-                    timestamp: Date.now()
-                }));
+    ws.on('message', (raw) => {
+        try {
+            const msg = JSON.parse(raw);
+            if (msg.type === 'login') {
+                username = msg.username;
+                clients.set(username, ws);
+                // оповестить всех о входе
+                broadcast({ type: 'status', online: Array.from(clients.keys()) });
+            } else if (msg.type === 'message') {
+                const target = clients.get(msg.to);
+                if (target && target.readyState === WebSocket.OPEN) {
+                    target.send(JSON.stringify({
+                        type: 'message',
+                        from: username,
+                        to: msg.to,
+                        text: msg.text || '',
+                        media: msg.media || null,
+                        timestamp: Date.now()
+                    }));
+                }
             }
+        } catch (e) {
+            console.error('Bad message:', e);
         }
     });
 
@@ -38,10 +44,13 @@ wss.on('connection', (ws) => {
 });
 
 function broadcast(data) {
+    const str = JSON.stringify(data);
     wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify(data));
+        if (client.readyState === WebSocket.OPEN) client.send(str);
     });
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`WebSocket server on port ${PORT}`));
+server.listen(PORT, () => {
+    console.log(`✅ Server ready on port ${PORT}`);
+});
