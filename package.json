@@ -1,8 +1,9 @@
 {
-  "name": "telegaforce",
+  "name": "telegaforce-server",
   "version": "1.0.0",
-  "description": "Telegaforce messenger",
+  "description": "Telegaforce messenger backend",
   "main": "server.js",
+  "license": "MIT",
   "scripts": {
     "start": "node server.js"
   },
@@ -10,6 +11,6 @@
     "ws": "^8.16.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": "20.x"
   }
 }
