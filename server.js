@@ -1,60 +1,499 @@
-const http = require('http');
-const WebSocket = require('ws');
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Telegaforce</title>
+  <meta name="theme-color" content="#0a0a0d">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%230a0a0d'/%3E%3Ccircle cx='50' cy='50' r='40' fill='%2300e5a0'/%3E%3C/svg%3E">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{-webkit-user-select:none;user-select:none}
+    input,textarea{-webkit-user-select:text;user-select:text}
+    :root{
+      --bg:#0a0a0d;--s1:#15151a;--s2:#1d1d24;--s3:#26262e;--bd:#2e2e3a;
+      --acc:#00e5a0;--acc2:rgba(0,229,160,.15);--accg:rgba(0,229,160,.3);
+      --t1:#f2f2f7;--t2:#8e8ea0;--t3:#5a5a6e;--red:#ff453a;--redbg:rgba(255,69,58,.1);
+      --mebub:#0d3322;--mebrd:rgba(0,229,160,.22);--thembub:#1f1f2a;
+      --sb:env(safe-area-inset-bottom,0px);--st:env(safe-area-inset-top,0px);
+      --ease:cubic-bezier(.32,.72,0,1);--bounce:cubic-bezier(.16,1.2,.4,1);
+    }
+    html,body{height:100%;overflow:hidden;font-family:'Inter',sans-serif;font-size:14px;background:var(--bg);color:var(--t1);-webkit-tap-highlight-color:transparent}
 
-const server = http.createServer((req, res) => {
-  // HTTP health check для Render
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Telegaforce server is running');
-});
+    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes pop{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+    @keyframes glow{0%,100%{box-shadow:0 4px 14px var(--accg)}50%{box-shadow:0 4px 22px var(--accg),0 0 0 4px var(--acc2)}}
+    @keyframes morph{0%{filter:blur(0)}50%{filter:blur(4px);opacity:.5}100%{filter:blur(0);opacity:1}}
+    @keyframes morphScale{0%{filter:blur(0);transform:scale(1)}50%{filter:blur(6px);transform:scale(.96);opacity:.4}100%{filter:blur(0);transform:scale(1);opacity:1}}
 
-const wss = new WebSocket.Server({ server });
+    .gone{display:none!important}
+    .screen{position:fixed;inset:0;display:flex;flex-direction:column}
 
-const clients = new Map();
+    #s-auth{background:var(--bg);align-items:center;justify-content:center;padding:1.5rem;z-index:200;overflow-y:auto}
+    .acard{width:100%;max-width:380px;background:var(--s1);border:1px solid var(--bd);border-radius:26px;padding:2rem 1.7rem 1.6rem;position:relative;overflow:hidden;animation:fadeUp .5s var(--ease) both;margin:auto}
+    .acard::before{content:'';position:absolute;top:0;left:22%;right:22%;height:1px;background:linear-gradient(90deg,transparent,var(--acc),transparent)}
+    .acard::after{content:'';position:absolute;top:-90px;left:50%;transform:translateX(-50%);width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(0,229,160,.06),transparent 65%);pointer-events:none}
+    .alogo{font-family:'IBM Plex Mono',monospace;font-size:1.65rem;color:var(--acc);letter-spacing:-.03em;margin-bottom:.2rem}
+    .asub{font-size:.75rem;color:var(--t2);margin-bottom:1.5rem}
+    .atabs{position:relative;display:grid;grid-template-columns:1fr 1fr;background:var(--s2);border-radius:13px;padding:3px;margin-bottom:1.4rem}
+    .atab-pill{position:absolute;top:3px;bottom:3px;width:calc(50% - 3px);background:var(--s3);border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.55);transition:transform .35s var(--ease);left:3px;z-index:0}
+    .atabs.r .atab-pill{transform:translateX(100%)}
+    .atab{padding:.58rem;border:none;background:transparent;border-radius:10px;font-family:inherit;font-size:.82rem;font-weight:500;color:var(--t2);cursor:pointer;transition:color .25s;position:relative;z-index:1}
+    .atab.on{color:var(--t1)}
+    .aforms{position:relative}
+    .aform{transition:transform .4s var(--ease),opacity .3s var(--ease)}
+    .aform.hide-l{transform:translateX(-30px);opacity:0;position:absolute;inset:0;pointer-events:none}
+    .aform.hide-r{transform:translateX(30px);opacity:0;position:absolute;inset:0;pointer-events:none}
 
-wss.on('connection', (ws) => {
-  let username = null;
+    .fld{margin-bottom:.85rem}
+    .flbl{display:block;font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);margin-bottom:.38rem}
+    .uwrap{display:flex;align-items:center;background:var(--s2);border:1.5px solid var(--bd);border-radius:13px;overflow:hidden;transition:all .2s}
+    .uwrap:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc2)}
+    .atsign{padding:.76rem 0 .76rem 1rem;color:var(--acc);font-family:'IBM Plex Mono',monospace;font-size:.95rem;font-weight:500;user-select:none;pointer-events:none;flex-shrink:0;line-height:1}
+    .uinput{flex:1;padding:.76rem 1rem .76rem .22rem;background:transparent;border:none;color:var(--t1);font-family:'IBM Plex Mono',monospace;font-size:.86rem;outline:none;min-width:0;-webkit-appearance:none}
+    .finput{width:100%;padding:.76rem 1rem;background:var(--s2);border:1.5px solid var(--bd);border-radius:13px;color:var(--t1);font-family:inherit;font-size:.88rem;outline:none;transition:all .2s;-webkit-appearance:none}
+    .finput:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc2)}
 
-  ws.on('message', (raw) => {
-    try {
-      const msg = JSON.parse(raw);
-      if (msg.type === 'login') {
-        username = msg.username;
-        clients.set(username, ws);
-        broadcast({ type: 'status', online: Array.from(clients.keys()) });
-      } else if (msg.type === 'message') {
-        const target = clients.get(msg.to);
-        if (target && target.readyState === WebSocket.OPEN) {
-          target.send(JSON.stringify({
-            type: 'message',
-            from: username,
-            to: msg.to,
-            text: msg.text || '',
-            media: msg.media || null,
-            timestamp: Date.now()
-          }));
+    .avu-wrap{display:flex;flex-direction:column;align-items:center;gap:.5rem;margin-bottom:1rem}
+    .avu{position:relative;width:84px;height:84px;border-radius:50%;background:var(--s2);border:2px dashed var(--bd);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;transition:all .25s}
+    .avu:hover{border-color:var(--acc);transform:scale(1.05)}
+    .avu:active{transform:scale(.97)}
+    .avu img{width:100%;height:100%;object-fit:cover}
+    .avu-icon{color:var(--t3);transition:color .2s;display:flex;align-items:center;justify-content:center}
+    .avu:hover .avu-icon{color:var(--acc)}
+    .avu-icon svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+    .avu-edit{position:absolute;bottom:0;right:0;width:26px;height:26px;background:var(--acc);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#000;border:2px solid var(--s1)}
+    .avu-edit svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+    .avu-hint{font-size:.7rem;color:var(--t2)}
+    .fname-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+
+    .abtn{width:100%;padding:.87rem;margin-top:.4rem;background:var(--acc);color:#000;border:none;border-radius:13px;font-family:'IBM Plex Mono',monospace;font-size:.82rem;font-weight:500;letter-spacing:.06em;cursor:pointer;transition:all .2s}
+    .abtn:hover{background:#00ffb3;box-shadow:0 4px 26px var(--accg)}
+    .abtn:active{transform:scale(.97)}
+    .aerr{margin-top:.75rem;padding:.62rem .95rem;background:var(--redbg);border:1px solid rgba(255,69,58,.22);border-radius:11px;color:var(--red);font-size:.76rem;display:none;text-align:center;animation:fadeUp .25s ease}
+
+    #s-app{background:var(--bg);z-index:100;opacity:0;transition:opacity .4s var(--ease)}
+    #s-app.visible{opacity:1}
+    .topbar{display:flex;align-items:center;gap:.5rem;padding:calc(var(--st) + .8rem) 1rem .65rem;background:rgba(15,15,20,.85);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:.5px solid var(--bd);flex-shrink:0;z-index:10}
+    .topbar-title{font-size:1.15rem;font-weight:700;flex:1;letter-spacing:-.02em;transition:opacity .25s,transform .3s var(--ease)}
+    .topbar-title.fading{opacity:0;transform:translateX(-8px)}
+    .icon-btn{width:34px;height:34px;border-radius:10px;background:none;border:none;color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+    .icon-btn:hover{background:var(--s2);color:var(--t1)}
+    .icon-btn:active{transform:scale(.88)}
+    .icon-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .icon-btn.edit-btn{color:var(--acc)}
+
+    .content{flex:1;overflow:hidden;position:relative;padding-bottom:calc(86px + var(--sb))}
+    .tp{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;transition:opacity .35s var(--ease),transform .4s var(--ease)}
+    .tp.hide-l{opacity:0;transform:translateX(-30px) scale(.96);pointer-events:none}
+    .tp.hide-r{opacity:0;transform:translateX(30px) scale(.96);pointer-events:none}
+
+    .bdock{position:fixed;left:0;right:0;bottom:calc(var(--sb) + 12px);display:flex;justify-content:center;align-items:center;gap:10px;padding:0 14px;z-index:50;animation:fadeUp .5s var(--ease) both;pointer-events:none}
+    .bcaps,.bsearch{pointer-events:auto;background:rgba(28,28,34,.78);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);border:1px solid rgba(255,255,255,.06);box-shadow:0 12px 40px rgba(0,0,0,.6),0 2px 8px rgba(0,0,0,.4)}
+    .bcaps{position:relative;display:flex;align-items:center;border-radius:32px;padding:.5rem .55rem;gap:.25rem}
+    .bpill{position:absolute;top:.5rem;bottom:.5rem;background:var(--acc2);border-radius:24px;transition:left .45s var(--bounce),width .45s var(--bounce),opacity .3s;z-index:0;border:1px solid rgba(0,229,160,.18)}
+    .btab{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:62px;padding:.4rem .55rem;border:none;background:transparent;border-radius:24px;color:var(--t1);cursor:pointer;gap:.18rem;transition:transform .2s;-webkit-tap-highlight-color:transparent;position:relative;z-index:1}
+    .btab:active{transform:scale(.88)}
+    .btab svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:all .35s var(--ease)}
+    .btab span{font-size:.66rem;font-weight:600;color:var(--t1);transition:color .35s var(--ease);letter-spacing:-.01em}
+    .btab.on svg{stroke:var(--acc);filter:drop-shadow(0 0 6px var(--accg))}
+    .btab.on span{color:var(--acc)}
+    .bdot{position:absolute;top:5px;right:13px;width:8px;height:8px;border-radius:50%;background:var(--red);border:2px solid #1c1c22;display:none;animation:pop .3s ease;z-index:2}
+    .bdot.show{display:block}
+    .bsearch{width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:none;color:var(--t1);cursor:pointer;transition:all .35s var(--ease);-webkit-tap-highlight-color:transparent;flex-shrink:0;position:absolute;left:14px;bottom:50%;transform:translateY(50%)}
+    .bsearch:active{transform:scale(.9) translateY(50%)}
+    .bsearch svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:all .35s var(--ease)}
+    .bsearch.on{background:var(--acc2);border-color:rgba(0,229,160,.3)}
+    .bsearch.on svg{stroke:var(--acc);filter:drop-shadow(0 0 6px var(--accg));animation:wiggle .55s var(--bounce)}
+    @keyframes wiggle{0%{transform:rotate(0) scale(1)}25%{transform:rotate(-12deg) scale(1.08)}50%{transform:rotate(8deg) scale(1.05)}75%{transform:rotate(-4deg) scale(1.02)}100%{transform:rotate(0) scale(1)}}
+
+    .sbar-inner{position:relative;display:flex;align-items:center}
+    .sbar{padding:.65rem 1rem;border-bottom:.5px solid var(--bd);flex-shrink:0}
+    .sbar-ico{position:absolute;left:.85rem;pointer-events:none;color:var(--t3)}
+    .sbar-ico svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+    .sinput{width:100%;padding:.55rem .9rem .55rem 2.25rem;background:var(--s2);border:1.5px solid var(--bd);border-radius:12px;color:var(--t1);font-family:inherit;font-size:.84rem;outline:none;transition:all .2s;-webkit-appearance:none}
+    .sinput:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc2)}
+    .sinput::placeholder{color:var(--t3)}
+
+    .slist{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .slist::-webkit-scrollbar{width:0}
+    .sec-lbl{padding:.7rem 1rem .3rem;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--t2)}
+
+    .av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.66rem;font-weight:700;flex-shrink:0;overflow:hidden;background-size:cover;background-position:center}
+    .av.md{width:42px;height:42px;font-size:.85rem}
+    .av.lg{width:60px;height:60px;font-size:1.15rem}
+    .av img{width:100%;height:100%;object-fit:cover}
+    .av.morph,.crname.morph,.pc-name.morph,.pc-user.morph,.pc-fullname.morph{animation:morph .55s ease}
+    .av.morphScale{animation:morphScale .6s ease}
+    .fav-av{background:linear-gradient(135deg,#3b82f6,#8b5cf6)!important;color:#fff!important}
+    .fav-av svg{width:55%;height:55%;fill:#fff;stroke:none}
+
+    .crow{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;cursor:pointer;transition:background .15s;animation:fadeIn .25s ease}
+    .crow:active{background:var(--s2)}
+    .crow.act{background:var(--acc2)}
+    .cravw{position:relative;flex-shrink:0}
+    .odot{position:absolute;bottom:0;right:0;width:11px;height:11px;border-radius:50%;border:2.5px solid var(--bg);z-index:2}
+    .crinfo{flex:1;min-width:0}
+    .crname{font-size:.9rem;font-weight:600;display:flex;align-items:center;gap:.4rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:filter .3s}
+    .crprev{font-size:.74rem;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.12rem}
+    .crr{display:flex;flex-direction:column;align-items:flex-end;gap:.3rem;flex-shrink:0}
+    .crtime{font-size:.65rem;color:var(--t2)}
+    .bdg{background:var(--acc);color:#000;font-size:.62rem;font-weight:700;border-radius:10px;padding:.1rem .47rem;min-width:18px;text-align:center;animation:pop .25s ease}
+
+    .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5rem;text-align:center;gap:.7rem;animation:fadeUp .35s ease}
+    .empty-ico{font-size:3.5rem;opacity:.25}
+    .empty-ico svg{width:64px;height:64px;fill:none;stroke:var(--t2);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;opacity:.5}
+    .empty-t{font-size:.95rem;font-weight:600}
+    .empty-h{font-size:.76rem;color:var(--t2);max-width:230px;line-height:1.65}
+
+    .chat-view{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;background:var(--bg);transform:translateX(100%);transition:transform .35s var(--ease);will-change:transform;background-repeat:repeat;background-size:auto}
+    .chat-view.open{transform:translateX(0)}
+    .chat-tb{display:flex;align-items:center;gap:.7rem;padding:calc(var(--st) + .7rem) 1rem .65rem;background:rgba(15,15,20,.88);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:.5px solid var(--bd);flex-shrink:0}
+    .back-btn{background:none;border:none;color:var(--acc);font-family:inherit;font-size:.92rem;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:.25rem;padding:.2rem .5rem .2rem 0;transition:opacity .2s}
+    .back-btn:active{opacity:.5}
+    .back-btn svg{width:11px;height:18px;fill:none;stroke:var(--acc);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+    .chat-tb-i{flex:1;min-width:0}
+    .chat-tb-name{font-size:.96rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .chat-tb-st{font-size:.72rem;color:var(--t2);margin-top:.02rem}
+    .chat-tb-st.on{color:var(--acc)}
+    .msgs{flex:1;overflow-y:auto;padding:.9rem 1rem;display:flex;flex-direction:column;gap:.22rem;-webkit-overflow-scrolling:touch;position:relative}
+    .msgs::-webkit-scrollbar{width:0}
+    .dsep{display:flex;align-items:center;gap:.75rem;margin:.65rem 0;font-size:.64rem;letter-spacing:.06em;color:var(--t2);text-transform:uppercase}
+    .dsep::before,.dsep::after{content:'';flex:1;height:1px;background:var(--bd)}
+    .mrow{display:flex;gap:.4rem;max-width:80%}
+    .mrow.me{align-self:flex-end;flex-direction:row-reverse}
+    .mrow.them{align-self:flex-start}
+    .mav-s{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.55rem;font-weight:700;flex-shrink:0;align-self:flex-end;overflow:hidden;background-size:cover;background-position:center}
+    .mav-s img{width:100%;height:100%;object-fit:cover}
+    .mcol{display:flex;flex-direction:column}
+    .me .mcol{align-items:flex-end}
+    .bbl{padding:.55rem .9rem;border-radius:18px;font-size:.87rem;line-height:1.52;word-break:break-word}
+    .me .bbl{background:var(--mebub);border:1px solid var(--mebrd);border-bottom-right-radius:5px}
+    .them .bbl{background:var(--thembub);border:1px solid var(--bd);border-bottom-left-radius:5px}
+    .mtime{font-size:.62rem;color:var(--t2);margin-top:.2rem;padding:0 .08rem}
+
+    .mrow.flying{position:absolute;animation:flyOut .55s cubic-bezier(.5,0,.2,1) forwards;pointer-events:none;z-index:5}
+    @keyframes flyOut{0%{opacity:.7;transform:scale(.85)}60%{opacity:1;transform:scale(1.02)}100%{opacity:1;transform:scale(1)}}
+    .mrow.fade-in{animation:msgPopUp .35s var(--ease) both}
+    @keyframes msgPopUp{from{opacity:0;transform:translateY(8px) scale(.92)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+    .ibar{display:flex;align-items:flex-end;gap:.55rem;padding:.75rem 1rem calc(var(--sb) + .75rem);border-top:.5px solid var(--bd);background:rgba(15,15,20,.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);flex-shrink:0;position:relative}
+    .itxt{flex:1;padding:.62rem .95rem;background:var(--s2);border:1.5px solid var(--bd);border-radius:22px;color:var(--t1);font-family:inherit;font-size:.88rem;resize:none;outline:none;max-height:130px;line-height:1.5;transition:border-color .2s}
+    .itxt:focus{border-color:var(--acc)}
+    .itxt::placeholder{color:var(--t3)}
+    .send-btn{width:40px;height:40px;border-radius:50%;flex-shrink:0;background:var(--acc);border:none;color:#000;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;animation:glow 3s ease infinite}
+    .send-btn:hover{background:#00ffb3}
+    .send-btn:active{transform:scale(.9)}
+    .send-btn svg{width:17px;height:17px;fill:currentColor;margin-left:1px}
+
+    .find-body{flex:1;overflow-y:auto;padding:1.2rem 1rem;display:flex;flex-direction:column;gap:1rem}
+    .find-title{font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:var(--t2)}
+    .find-row{display:flex;gap:.5rem}
+    .find-uw{display:flex;align-items:center;flex:1;background:var(--s2);border:1.5px solid var(--bd);border-radius:13px;overflow:hidden;transition:all .2s}
+    .find-uw:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc2)}
+    .find-btn{padding:.72rem 1.1rem;background:var(--acc);color:#000;border:none;border-radius:13px;font-family:'IBM Plex Mono',monospace;font-size:.78rem;font-weight:500;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0}
+    .find-btn:active{transform:scale(.95)}
+    .find-card{background:var(--s1);border:1px solid var(--bd);border-radius:18px;padding:1.1rem 1.2rem;display:none;animation:fadeUp .3s var(--ease)}
+    .find-card.show{display:flex;align-items:center;gap:.85rem}
+    .fc-info{flex:1;min-width:0}
+    .fc-name{font-size:.95rem;font-weight:700}
+    .fc-tag{font-size:.76rem;color:var(--t2);font-family:'IBM Plex Mono',monospace;margin-top:.1rem}
+    .fc-btn{padding:.58rem 1.1rem;background:var(--acc);color:#000;border:none;border-radius:11px;font-family:inherit;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+    .fc-btn:active{transform:scale(.95)}
+    .find-none{background:var(--redbg);border:1px solid rgba(255,69,58,.2);border-radius:13px;padding:.85rem 1rem;color:var(--red);font-size:.82rem;text-align:center;display:none;animation:fadeUp .25s ease}
+    .find-none.show{display:block}
+
+    .profile-card{margin:1rem;background:var(--s1);border:1px solid var(--bd);border-radius:22px;padding:1.5rem 1.2rem 1.3rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;animation:fadeUp .35s var(--ease)}
+    .pc-name{font-size:1.05rem;font-weight:700;text-align:center;transition:filter .3s}
+    .pc-user{font-size:.78rem;color:var(--t2);font-family:'IBM Plex Mono',monospace;transition:filter .3s}
+    .pc-fullname{font-size:.78rem;color:var(--t2);text-align:center;margin-top:.1rem;transition:filter .3s}
+
+    .settings-list{flex:1;overflow-y:auto;padding:.5rem 0}
+    .srow{display:flex;align-items:center;gap:.85rem;padding:.85rem 1rem;cursor:pointer;transition:background .15s}
+    .srow:active{background:var(--s2)}
+    .srow-ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+    .srow-ico svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+    .srow-info{flex:1}
+    .srow-t{font-size:.9rem;font-weight:500}
+    .srow-s{font-size:.73rem;color:var(--t2);margin-top:.06rem}
+    .srow-arr{color:var(--t3);font-size:.95rem}
+
+    .emoji-panel{position:fixed;z-index:450;background:rgba(38,38,46,.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:.6rem;box-shadow:0 12px 40px rgba(0,0,0,.7);display:none;grid-template-columns:repeat(8,1fr);gap:.4rem;max-width:360px;animation:menuPop .25s var(--bounce)}
+    .emoji-panel.show{display:grid}
+    .emoji-item{width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;cursor:pointer;border-radius:10px;transition:transform .15s,background .15s}
+    .emoji-item:hover{transform:scale(1.4);background:var(--s2)}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:400;display:none;align-items:center;justify-content:center;padding:1.5rem;animation:fadeIn .2s ease}
+    .modal.show{display:flex}
+    .modal-card{background:var(--s1);border:1px solid var(--bd);border-radius:20px;padding:1.5rem 1.4rem 1.2rem;max-width:340px;width:100%;animation:fadeUp .3s var(--ease)}
+    .modal-title{font-size:1rem;font-weight:700;margin-bottom:.5rem;text-align:center}
+    .modal-text{font-size:.84rem;color:var(--t2);text-align:center;margin-bottom:1.2rem;line-height:1.55}
+    .modal-btns{display:flex;gap:.5rem}
+    .modal-btn{flex:1;padding:.7rem;border:none;border-radius:11px;font-family:inherit;font-size:.84rem;font-weight:600;cursor:pointer;transition:all .15s}
+    .modal-btn.cancel{background:var(--s2);color:var(--t1)}
+    .modal-btn.confirm{background:var(--red);color:#fff}
+    .modal-btn:active{transform:scale(.97)}
+    .toast-el{position:fixed;bottom:calc(var(--sb) + 105px);left:50%;transform:translateX(-50%);background:var(--s3);border:1px solid var(--bd);border-top:2px solid var(--acc);padding:.65rem 1.25rem;border-radius:14px;font-size:.8rem;white-space:nowrap;z-index:500;animation:fadeUp .3s var(--ease);box-shadow:0 8px 28px rgba(0,0,0,.55);max-width:90vw;overflow:hidden;text-overflow:ellipsis}
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- ЭКРАН АВТОРИЗАЦИИ -->
+  <div id="s-auth" class="screen">
+    <div class="acard">
+      <div class="alogo" id="al">Telegaforce/</div>
+      <div class="asub" id="as">мессенджер нового поколения</div>
+      <div class="atabs" id="atabs">
+        <span class="atab-pill" id="atab-pill"></span>
+        <button class="atab on" id="atb-l" onclick="switchAuthTab('l')">Войти</button>
+        <button class="atab" id="atb-r" onclick="switchAuthTab('r')">Регистрация</button>
+      </div>
+      <div class="aforms">
+        <div class="aform" id="t-l">
+          <div class="fld"><label class="flbl" id="lb-lu">Имя пользователя</label>
+            <div class="uwrap"><span class="atsign">@</span><input class="uinput" id="l-u" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="email"/></div></div>
+          <div class="fld"><label class="flbl" id="lb-lp">Пароль</label>
+            <input class="finput" type="password" id="l-p" autocomplete="current-password" autocorrect="off" autocapitalize="none" spellcheck="false"/></div>
+          <button class="abtn" id="lb-btn" onclick="doLogin()">→ ВОЙТИ</button>
+        </div>
+        <div class="aform hide-r" id="t-r">
+          <div class="avu-wrap">
+            <div class="avu" onclick="document.getElementById('avu-file').click()">
+              <span class="avu-icon" id="avu-icon"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
+              <img id="avu-preview" style="display:none" alt=""/>
+              <div class="avu-edit"><svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4z"/></svg></div>
+            </div>
+            <span class="avu-hint" id="avu-hint">Загрузить аватар</span>
+            <input type="file" id="avu-file" accept="image/*" style="display:none" onchange="handleAvatar(event,'avu-preview','avu-icon','reg')"/>
+          </div>
+          <div class="fld"><label class="flbl" id="lb-ru">Имя пользователя</label>
+            <div class="uwrap"><span class="atsign">@</span><input class="uinput" id="r-u" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="email"/></div></div>
+          <div class="fname-row">
+            <div class="fld"><label class="flbl" id="lb-rfn">Имя</label><input class="finput" type="text" id="r-fn"/></div>
+            <div class="fld"><label class="flbl" id="lb-rln">Фамилия</label><input class="finput" type="text" id="r-ln"/></div>
+          </div>
+          <div class="fld"><label class="flbl" id="lb-rmn">Отчество (необязательно)</label><input class="finput" type="text" id="r-mn"/></div>
+          <div class="fld"><label class="flbl" id="lb-rp">Пароль</label><input class="finput" type="password" id="r-p" autocomplete="new-password"/></div>
+          <button class="abtn" id="rb-btn" onclick="doRegister()">→ СОЗДАТЬ АККАУНТ</button>
+        </div>
+      </div>
+      <div class="aerr" id="aerr"></div>
+    </div>
+  </div>
+
+  <!-- ГЛАВНЫЙ ЭКРАН -->
+  <div id="s-app" class="screen gone">
+    <div class="topbar">
+      <span class="topbar-title" id="topbar-title">Чаты</span>
+      <button class="icon-btn edit-btn gone" id="btn-edit" onclick="openEdit()" title="Редактировать">
+        <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4z"/></svg>
+      </button>
+    </div>
+    <div class="content">
+      <div class="tp hide-l" id="tp-contacts">
+        <div class="profile-card" id="my-profile-card"></div>
+        <div class="sec-lbl" id="lbl-all-users">Все пользователи</div>
+        <div class="slist" id="contacts-list"></div>
+      </div>
+      <div class="tp hide-l" id="tp-calls">
+        <div class="empty">
+          <div class="empty-ico"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg></div>
+          <div class="empty-t">Скоро</div>
+          <div class="empty-h">Звонки появятся в следующем обновлении</div>
+        </div>
+      </div>
+      <div class="tp" id="tp-chats">
+        <div class="sbar"><div class="sbar-inner">
+          <span class="sbar-ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+          <input class="sinput" id="chat-srch" oninput="renderChats(this.value)" placeholder="Поиск..."/>
+          <button class="ibar-btn" onclick="setTab('find')" style="position:absolute;right:.3rem;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:8px"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+        </div></div>
+        <div class="slist" id="chat-list"></div>
+      </div>
+      <div class="tp hide-r" id="tp-settings">
+        <div class="settings-list" id="settings-list"></div>
+      </div>
+      <div class="tp hide-r" id="tp-find">
+        <div class="find-body">
+          <div class="find-title">Найти пользователя по @username</div>
+          <div class="find-row">
+            <div class="find-uw"><span class="atsign">@</span><input class="uinput" id="find-inp" placeholder="username"/></div>
+            <button class="find-btn" onclick="findUser()">Найти</button>
+          </div>
+          <div class="find-card" id="find-card">
+            <div class="av md" id="fc-av"></div>
+            <div class="fc-info"><div class="fc-name"></div><div class="fc-tag"></div></div>
+            <button class="fc-btn" onclick="openFromFind()">Написать</button>
+          </div>
+          <div class="find-none" id="find-none">Пользователь не найден</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bdock">
+      <div class="bcaps" id="bcaps">
+        <span class="bpill" id="bpill"></span>
+        <button class="btab" onclick="setTab('contacts')"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg><span>Контакты</span></button>
+        <button class="btab" onclick="setTab('calls')"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg><span>Звонки</span></button>
+        <button class="btab on" onclick="setTab('chats')"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span>Чаты</span></button>
+        <button class="btab" onclick="setTab('settings')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Настройки</span></button>
+      </div>
+      <button class="bsearch" onclick="setTab('find')" style="position:absolute;left:14px;bottom:50%;transform:translateY(50%)">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ЭКРАН ЧАТА -->
+  <div class="chat-view" id="chat-view">
+    <div class="chat-tb">
+      <button class="back-btn" onclick="closeChat()"><svg viewBox="0 0 11 18"><polyline points="10,1 1,9 10,17"/></svg> Назад</button>
+      <div class="av" id="chat-av" onclick="openContactPage()"></div>
+      <div class="chat-tb-i" onclick="openContactPage()">
+        <div class="chat-tb-name" id="chat-name"></div>
+        <div class="chat-tb-st" id="chat-st"></div>
+      </div>
+    </div>
+    <div class="msgs" id="msgs"></div>
+    <div class="reply-bar" id="reply-bar" style="display:none">
+      <div class="reply-info"><div class="reply-name"></div><div class="reply-text"></div></div>
+      <button class="reply-close" onclick="cancelReply()">✕</button>
+    </div>
+    <div class="preview-bar" id="preview-bar" style="display:none">
+      <div class="preview-thumb" id="preview-thumb"></div>
+      <div class="preview-info"><div class="preview-name"></div><div class="preview-size"></div></div>
+      <button class="preview-close" onclick="cancelAttach()">✕</button>
+    </div>
+    <div class="ibar">
+      <button class="ibar-btn" onclick="openAttachMenu(event)"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></button>
+      <button class="ibar-btn" onclick="toggleEmojiPanel(event)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+      <textarea class="itxt" id="itxt" rows="1" maxlength="2000" onkeydown="onMsgKey(event)" oninput="grow(this)" placeholder="Сообщение..."></textarea>
+      <button class="send-btn" id="send-btn" onclick="send()"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+    </div>
+    <input type="file" id="attach-file" accept="image/*,video/*" multiple style="display:none" onchange="handleAttach(event,'gallery')"/>
+    <input type="file" id="camera-file" accept="image/*,video/*" capture="environment" multiple style="display:none" onchange="handleAttach(event,'camera')"/>
+  </div>
+
+  <!-- ЭМОДЗИ ПАНЕЛЬ -->
+  <div class="emoji-panel" id="emoji-panel"></div>
+
+  <!-- МОДАЛКА -->
+  <div class="modal" id="modal">
+    <div class="modal-card">
+      <div class="modal-title"></div>
+      <div class="modal-text"></div>
+      <div class="modal-btns">
+        <button class="modal-btn cancel" onclick="hideModal()">Отмена</button>
+        <button class="modal-btn confirm"></button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+    const SERVER_URL = 'wss://telegaforce-2.onrender.com';
+    let ws = null;
+
+    // Языковые строки (сокращённый набор)
+    const lang = navigator.language.startsWith('ru') ? 'ru' : 'en';
+    const T = {
+      appName:'Telegaforce', sub: lang==='ru'?'мессенджер нового поколения':'next generation messenger',
+      login: lang==='ru'?'Войти':'Sign in', register: lang==='ru'?'Регистрация':'Sign up',
+      username: lang==='ru'?'Имя пользователя':'Username', password: lang==='ru'?'Пароль':'Password',
+      btnLogin: lang==='ru'?'→ ВОЙТИ':'→ SIGN IN', btnReg: lang==='ru'?'→ СОЗДАТЬ АККАУНТ':'→ CREATE ACCOUNT',
+      eFill: lang==='ru'?'Заполни поля':'Fill fields', eUser: lang==='ru'?'3-20 латинских символов':'3-20 latin chars',
+      ePass: lang==='ru'?'Минимум 4 символа':'Min 4 chars', eTaken: '@{u} занят',
+      eWrong: lang==='ru'?'Неверные данные':'Wrong credentials',
+      chats: lang==='ru'?'Чаты':'Chats', contacts: lang==='ru'?'Контакты':'Contacts',
+      settings: lang==='ru'?'Настройки':'Settings', search: lang==='ru'?'Поиск':'Search',
+      online: lang==='ru'?'онлайн':'online', offline: lang==='ru'?'офлайн':'offline',
+      you: lang==='ru'?'Вы: ':'You: ', today: lang==='ru'?'Сегодня':'Today',
+      fav: lang==='ru'?'Избранное':'Saved', favHint: lang==='ru'?'Заметки':'Notes',
+      msgPh: lang==='ru'?'Сообщение...':'Message...'
+    };
+
+    // Хранилище
+    const UK='p8u',MK='p8m',SK='p8s';
+    const gU=()=>JSON.parse(localStorage[UK]||'{}');
+    const sU=u=>localStorage[UK]=JSON.stringify(u);
+    const gM=()=>JSON.parse(localStorage[MK]||'{}');
+    const sM=m=>localStorage[MK]=JSON.stringify(m);
+    let me=null, activeChat=null, curTab='chats', foundUser=null;
+    const FAV='__fav__';
+    const ckey=(a,b)=>[a,b].sort().join('::');
+    const tS=ts=>new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    function dS(ts){const d=new Date(ts),t=new Date();if(d.toDateString()===t.toDateString())return T.today;const y=new Date(t);y.setDate(t.getDate()-1);if(d.toDateString()===y.toDateString())return 'Вчера';return d.toLocaleDateString([],{day:'numeric',month:'long'});}
+    function col(s){const p=['#0d2e1f','#1a1535','#2e1a0d','#0d1a2e','#2e0d1a','#1a2e0d'];let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))&0xffff;return p[h%p.length];}
+    function acc(s){const p=['#00e5a0','#8b7fff','#ffaa44','#44bbff','#ff7eb3','#aaee66'];let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))&0xffff;return p[h%p.length];}
+    function setAv(el,user){
+      el.innerHTML='';
+      if(user&&user.avatar){const img=document.createElement('img');img.src=user.avatar;el.appendChild(img);el.style.background='';el.style.color='';}
+      else{const n=user?(user.display||user.username):'?';el.textContent=(n||'?').slice(0,2).toUpperCase();el.style.background=col(n);el.style.color=acc(n);}
+    }
+    function toast(msg){const e=document.createElement('div');e.className='toast-el';e.textContent=msg;document.body.appendChild(e);setTimeout(()=>e.remove(),2800);}
+
+    // WebSocket
+    function connectWebSocket(username){
+      ws=new WebSocket(SERVER_URL);
+      ws.onopen=()=>{ws.send(JSON.stringify({type:'login',username}));};
+      ws.onmessage=(event)=>{
+        const msg=JSON.parse(event.data);
+        if(msg.type==='message'){
+          const msgs=gM(),key=(msg.to===FAV||msg.from===FAV)?FAV:ckey(me.username,msg.from);
+          if(!msgs[key])msgs[key]=[];
+          msgs[key].push({from:msg.from,to:msg.to,text:msg.text||'',ts:msg.timestamp||Date.now(),read:false});
+          sM(msgs);
+          sfx('receive');
+          if(curTab==='chats')renderChats();
+          if(activeChat===msg.from||activeChat===msg.to)renderMsgs();
         }
-      }
-    } catch (e) {
-      console.error('Bad message:', e);
+      };
+      ws.onclose=()=>setTimeout(()=>connectWebSocket(username),3000);
     }
-  });
+    function wsSend(data){if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(data));}
 
-  ws.on('close', () => {
-    if (username) {
-      clients.delete(username);
-      broadcast({ type: 'status', online: Array.from(clients.keys()) });
+    // Звуки
+    let audioCtx=null;
+    function initAudio(){if(audioCtx)return;try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}}
+    function sfx(n){
+      if(n==='send'){const ctx=initAudio();if(!ctx)return;const t=ctx.currentTime,o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(700,t);o.frequency.exponentialRampToValueAtTime(1400,t+.08);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.18,t+.005);g.gain.exponentialRampToValueAtTime(.001,t+.12);o.connect(g);g.connect(ctx.destination);o.start(t);o.stop(t+.15);}
+      else if(n==='receive'){const ctx=initAudio();if(!ctx)return;const t=ctx.currentTime;[{f:880,d:0},{f:1320,d:.07}].forEach(({f,d})=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,t+d);g.gain.linearRampToValueAtTime(.16,t+d+.005);g.gain.exponentialRampToValueAtTime(.001,t+d+.18);o.connect(g);g.connect(ctx.destination);o.start(t+d);o.stop(t+d+.2);});}
     }
-  });
-});
 
-function broadcast(data) {
-  const str = JSON.stringify(data);
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) client.send(str);
-  });
-}
+    // Отправка
+    function send(){
+      const inp=document.getElementById('itxt'),text=inp.value.trim();
+      if(!text&&pendingAttachments.length===0||!activeChat)return;
+      const isFav=activeChat===FAV;
+      const msgs=gM(),key=isFav?FAV:ckey(me.username,activeChat);
+      if(!msgs[key])msgs[key]=[];
+      const newMsg={from:me.username,to:isFav?me.username:activeChat,text:text,ts:Date.now(),read:isFav};
+      msgs[key].push(newMsg);sM(msgs);
+      if(!isFav)wsSend({type:'message',to:activeChat,text:text});
+      sfx('send');
+      inp.value='';inp.style.height='auto';
+      renderMsgs();
+      if(curTab==='chats')renderChats();
+    }
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server ready on port ${PORT}`);
-});
+    // Запуск
+    function launch(username){
+      me=(gU())[username];
+      document.getElementById('s-auth').classList.add('gone');
+      document.getElementById('s-app').classList.remove('gone');
+      document.getElementById('s-app').classList.add('visible');
+      connectWebSocket(username);
+      setTab('chats');
+    }
+    window.switchAuthTab=function(t){/*...*/};
+    window.doLogin=function(){const u=document.getElementById('l-u').value.trim().toLowerCase();const p=document.getElementById('l-p').value;const users=gU();if(!users[u]||users[u].password!==p)return alert(T.eWrong);localStorage[SK]=u;launch(u);};
+    window.doRegister=function(){const u=document.getElementById('r-u').value.trim().toLowerCase();const p=document.getElementById('r-p').value;if(!u||!p)return;const users=gU();if(users[u])return alert(T.eTaken.replace('{u}',u));users[u]={username:u,password:p,display:u};sU(users);alert('Аккаунт создан');switchAuthTab('l');};
+    window.setTab=function(tab){curTab=tab;/*... обновление интерфейса */};
+    window.renderChats=function(){/*...*/};
+    window.renderMsgs=function(){/*...*/};
+    window.openChat=function(username){activeChat=username;document.getElementById('chat-view').classList.add('open');renderMsgs();};
+    window.closeChat=function(){activeChat=null;document.getElementById('chat-view').classList.remove('open');};
+    // ... и так далее, полные функции рендеринга
+  </script>
+</body>
+</html>
