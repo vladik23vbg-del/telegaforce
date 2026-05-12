@@ -2,6 +2,9 @@
 // Run: npm install && node server.js
 // Deploy free: Render.com
 
+process.on(‘uncaughtException’, e => { console.error(‘UNCAUGHT:’, e); });
+process.on(‘unhandledRejection’, e => { console.error(‘UNHANDLED:’, e); });
+
 const http = require(‘http’);
 const fs = require(‘fs’);
 const path = require(‘path’);
@@ -190,11 +193,15 @@ if (msg.type === 'react') {
   const m = arr.find(x => x.ts === ts);
   if (!m) return;
   m.reactions = m.reactions || {};
-  m.reactions[emoji] = m.reactions[emoji] || [];
-  const i = m.reactions[emoji].indexOf(username);
-  if (i >= 0) m.reactions[emoji].splice(i, 1);
-  else m.reactions[emoji].push(username);
-  if (m.reactions[emoji].length === 0) delete m.reactions[emoji];
+  const had = (m.reactions[emoji] || []).includes(username);
+  Object.keys(m.reactions).forEach(e => {
+    m.reactions[e] = (m.reactions[e] || []).filter(u => u !== username);
+    if (m.reactions[e].length === 0) delete m.reactions[e];
+  });
+  if (!had) {
+    m.reactions[emoji] = m.reactions[emoji] || [];
+    m.reactions[emoji].push(username);
+  }
   save();
   broadcastChat(key, { type: 'react', key, ts, reactions: m.reactions });
 }
