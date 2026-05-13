@@ -201,7 +201,7 @@ html,body{height:100%;overflow:hidden}
 .chat-tb-st.on{color:var(--acc)}
 
 
-.msgs-bg{position:absolute;inset:0;pointer-events:none;z-index:0}
+.msgs-bg{position:absolute;inset:0;pointer-events:none;z-index:0;background-attachment:local;background-repeat:repeat}
 .msgs{flex:1;overflow-y:auto;padding:.9rem 1rem;display:flex;flex-direction:column;gap:.22rem;-webkit-overflow-scrolling:touch;position:relative;z-index:1}
 .msgs::-webkit-scrollbar{width:0}
 .dsep{display:flex;align-items:center;gap:.75rem;margin:.65rem 0;font-size:.64rem;letter-spacing:.06em;color:var(--t2);text-transform:uppercase}
@@ -994,7 +994,7 @@ body[data-theme="brown"]{--acc:#a16b3d;--acc2:rgba(161,107,61,.18);--accg:rgba(1
 <script>
 'use strict';
 
-const SERVER_URL = '';
+const SERVER_URL = (location.protocol==='http:'||location.protocol==='https:')&&location.host&&!location.host.startsWith('localhost')&&!location.host.startsWith('127.0.0.1')&&location.protocol!=='file:'?location.origin:'';
 const USE_SERVER = !!SERVER_URL;
 
 const sysL=(navigator.language||'ru').toLowerCase();
@@ -1454,9 +1454,16 @@ async function doLogin(){
 
   if(USE_SERVER){
     try{
-      const r=await fetch(SERVER_URL+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
-      const d=await r.json();
-      if(!r.ok){showErr(T.eWrong);return;}
+      let r=await fetch(SERVER_URL+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+      let d=await r.json();
+      if(!r.ok){
+        const localUsers=gU();
+        if(localUsers[u]&&localUsers[u].password===p){
+          const reg=await fetch(SERVER_URL+'/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...localUsers[u],password:p})});
+          if(reg.ok){r=await fetch(SERVER_URL+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});d=await r.json();}
+        }
+        if(!r.ok){showErr(T.eWrong);return;}
+      }
       const users=gU();users[u]={...d.user,password:p};sU(users);
       try{const ru=await fetch(SERVER_URL+'/api/users');const list=await ru.json();list.forEach(usr=>{if(!users[usr.username])users[usr.username]={...usr};else users[usr.username]={...users[usr.username],...usr};});sU(users);}catch(_){}
     }catch(e){showErr('Server unreachable');return;}
@@ -2374,10 +2381,15 @@ function buildWPDataUrl(wp,opacity){
 function applyTheme(){const p=getPrefs();document.body.setAttribute('data-theme',p.theme||'blue');}
 function applyWallpaper(){
   const p=getPrefs();const wp=WALLPAPERS.find(w=>w.id===(p.wallpaper||'shapes'));
-  const bg=document.getElementById('msgs-bg');if(!bg)return;
-  if(!wp||!wp.svg){bg.style.background='';return;}
+  const bg=document.getElementById('msgs-bg');
+  const msgsEl=document.getElementById('msgs');
+  if(bg)bg.style.background='';
+  if(!msgsEl)return;
+  if(!wp||!wp.svg){msgsEl.style.backgroundImage='';return;}
   const url=buildWPDataUrl(wp,0.13);
-  bg.style.background=`url("${url}") repeat`;
+  msgsEl.style.backgroundImage=`url("${url}")`;
+  msgsEl.style.backgroundRepeat='repeat';
+  msgsEl.style.backgroundAttachment='local';
 }
 function openThemes(){
   document.getElementById('themes-page').classList.add('open');
