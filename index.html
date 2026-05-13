@@ -201,7 +201,7 @@ html,body{height:100%;overflow:hidden}
 .chat-tb-st.on{color:var(--acc)}
 
 
-.msgs-bg{position:absolute;inset:0;pointer-events:none;z-index:0;background-attachment:local;background-repeat:repeat}
+.msgs-bg{position:sticky;top:0;left:0;right:0;height:100%;width:100%;margin-bottom:-100vh;pointer-events:none;z-index:0;background-repeat:repeat;flex-shrink:0}
 .msgs{flex:1;overflow-y:auto;padding:.9rem 1rem;display:flex;flex-direction:column;gap:.22rem;-webkit-overflow-scrolling:touch;position:relative;z-index:1}
 .msgs::-webkit-scrollbar{width:0}
 .dsep{display:flex;align-items:center;gap:.75rem;margin:.65rem 0;font-size:.64rem;letter-spacing:.06em;color:var(--t2);text-transform:uppercase}
@@ -393,6 +393,7 @@ html,body{height:100%;overflow:hidden}
 .page-title{flex:1;font-size:1rem;font-weight:700;text-align:center}
 .page-save{background:none;border:none;color:var(--acc);font-family:inherit;font-size:.92rem;font-weight:600;cursor:pointer;padding:.2rem .5rem}
 .page-body{flex:1;overflow-y:auto;padding:1.5rem 1rem;-webkit-overflow-scrolling:touch}
+.page-body>*{max-width:440px;margin-left:auto;margin-right:auto}
 .page-body::-webkit-scrollbar{width:0}
 
 
@@ -435,14 +436,16 @@ body[data-theme="orange"]{--acc:#ff8a3d;--acc2:rgba(255,138,61,.22);--accg:rgba(
 body[data-theme="fuchsia"]{--acc:#f472b6;--acc2:rgba(244,114,182,.22);--accg:rgba(244,114,182,.55);--mebub:#3a0d24;--mebrd:rgba(244,114,182,.22)}
 body[data-theme="brown"]{--acc:#a16b3d;--acc2:rgba(161,107,61,.18);--accg:rgba(161,107,61,.34);--mebub:#2d1d10;--mebrd:rgba(161,107,61,.25)}
 
-.themes-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.7rem;padding:0 .2rem}
+.themes-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.7rem;padding:0 .2rem;max-width:360px}
+.themes-grid .theme-sw{max-width:64px}
 .theme-sw{aspect-ratio:1;border-radius:16px;cursor:pointer;border:2.5px solid transparent;transition:all .25s var(--ease);position:relative;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.35)}
 .theme-sw:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.45)}
 .theme-sw.on{border-color:#fff;transform:scale(.92);box-shadow:0 0 0 3px rgba(255,255,255,.25),0 8px 22px rgba(0,0,0,.5)}
 .theme-sw.on::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.4rem;font-weight:700;text-shadow:0 2px 6px rgba(0,0,0,.7)}
 .theme-sw:active{transform:scale(.88)}
 .section-lbl{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);margin:.5rem .2rem .7rem}
-.wp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.7rem;padding:0 .2rem}
+.wp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;padding:0 .2rem;max-width:360px}
+.wp-grid .wp-sw{max-width:110px}
 .wp-sw{aspect-ratio:.7;border-radius:16px;cursor:pointer;border:2.5px solid transparent;transition:all .25s var(--ease);position:relative;background:var(--bg);overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 .wp-sw:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.45)}
 .wp-sw.on{border-color:var(--acc);transform:scale(.97);box-shadow:0 0 0 4px var(--acc2),0 8px 24px rgba(0,0,0,.45)}
@@ -2371,6 +2374,18 @@ const WALLPAPERS=[
   {id:'leaves',name:'Листья',size:90,svg:`<path d='M45 15 Q60 30 45 75 Q30 30 45 15' fill='currentColor'/><circle cx='45' cy='45' r='1.5' fill='#000' opacity='.3'/>`},
   {id:'circles',name:'Круги',size:60,svg:`<circle cx='30' cy='30' r='14' fill='none' stroke='currentColor' stroke-width='1.2'/><circle cx='30' cy='30' r='6' fill='none' stroke='currentColor' stroke-width='1'/>`},
   {id:'plus',name:'Плюсики',size:50,svg:`<path d='M25 15v20M15 25h20' stroke='currentColor' stroke-width='2.2' stroke-linecap='round'/>`},
+  {id:'diamond',name:'Ромбы',size:60,svg:`<polygon points='30,8 52,30 30,52 8,30' fill='none' stroke='currentColor' stroke-width='1.4'/>`},
+  {id:'triangle',name:'Треугольники',size:70,svg:`<polygon points='35,12 58,52 12,52' fill='none' stroke='currentColor' stroke-width='1.5'/>`},
+  {id:'hex',name:'Соты',size:60,svg:`<polygon points='30,5 50,17 50,38 30,50 10,38 10,17' fill='none' stroke='currentColor' stroke-width='1.3'/>`},
+  {id:'cross',name:'Крестики',size:50,svg:`<path d='M15 15l20 20M35 15l-20 20' stroke='currentColor' stroke-width='1.6' stroke-linecap='round'/>`},
+  {id:'rain',name:'Капли',size:50,svg:`<path d='M25 10 Q35 25 25 35 Q15 25 25 10' fill='currentColor'/>`},
+  {id:'snow',name:'Снежинки',size:70,svg:`<path d='M35 12v46M14 35h42M19 19l32 32M51 19L19 51' stroke='currentColor' stroke-width='1.2' stroke-linecap='round'/>`},
+  {id:'music',name:'Ноты',size:80,svg:`<circle cx='25' cy='55' r='6'/><rect x='30' y='15' width='2.5' height='42' rx='1'/><path d='M30 15 Q48 18 48 28' fill='none' stroke='currentColor' stroke-width='2.5'/>`},
+  {id:'flowers',name:'Цветы',size:80,svg:`<circle cx='40' cy='25' r='5'/><circle cx='55' cy='40' r='5'/><circle cx='40' cy='55' r='5'/><circle cx='25' cy='40' r='5'/><circle cx='40' cy='40' r='3'/>`},
+  {id:'arrows',name:'Стрелки',size:60,svg:`<path d='M15 30h26M33 22l8 8-8 8' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/>`},
+  {id:'zigzag',name:'Зигзаг',size:60,svg:`<path d='M0 30 L15 15 L30 30 L45 15 L60 30 L75 15' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/>`},
+  {id:'pixels',name:'Пиксели',size:40,svg:`<rect x='5' y='5' width='6' height='6'/><rect x='25' y='15' width='6' height='6'/><rect x='10' y='25' width='6' height='6'/><rect x='28' y='30' width='6' height='6'/>`},
+  {id:'rings',name:'Кольца',size:70,svg:`<circle cx='35' cy='35' r='20' fill='none' stroke='currentColor' stroke-width='1.5'/><circle cx='35' cy='35' r='13' fill='none' stroke='currentColor' stroke-width='1' opacity='.6'/><circle cx='35' cy='35' r='6' fill='none' stroke='currentColor' stroke-width='.8' opacity='.4'/>`},
 ];
 function buildWPDataUrl(wp,opacity){
   if(!wp.svg)return null;
@@ -2381,15 +2396,13 @@ function buildWPDataUrl(wp,opacity){
 function applyTheme(){const p=getPrefs();document.body.setAttribute('data-theme',p.theme||'blue');}
 function applyWallpaper(){
   const p=getPrefs();const wp=WALLPAPERS.find(w=>w.id===(p.wallpaper||'shapes'));
-  const bg=document.getElementById('msgs-bg');
   const msgsEl=document.getElementById('msgs');
-  if(bg)bg.style.background='';
-  if(!msgsEl)return;
-  if(!wp||!wp.svg){msgsEl.style.backgroundImage='';return;}
+  const bg=document.getElementById('msgs-bg');
+  if(msgsEl){msgsEl.style.backgroundImage='';msgsEl.style.backgroundAttachment='';}
+  if(!bg)return;
+  if(!wp||!wp.svg){bg.style.backgroundImage='';return;}
   const url=buildWPDataUrl(wp,0.13);
-  msgsEl.style.backgroundImage=`url("${url}")`;
-  msgsEl.style.backgroundRepeat='repeat';
-  msgsEl.style.backgroundAttachment='local';
+  bg.style.backgroundImage=`url("${url}")`;
 }
 function openThemes(){
   document.getElementById('themes-page').classList.add('open');
