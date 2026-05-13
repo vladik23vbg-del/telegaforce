@@ -15,7 +15,8 @@
 <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><radialGradient id='g' cx='50%25' cy='50%25' r='50%25'><stop offset='30%25' stop-color='%23222'/><stop offset='60%25' stop-color='%237b6cf6'/><stop offset='75%25' stop-color='%2360d8f7'/><stop offset='90%25' stop-color='%2300e5a0'/><stop offset='100%25' stop-color='%23ff8a3d'/></radialGradient></defs><rect width='100' height='100' rx='22' fill='%230a0a0d'/><circle cx='50' cy='50' r='40' fill='url(%23g)'/></svg>"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
-html{color-scheme:dark}
+html{color-scheme:dark;overscroll-behavior:none;-webkit-overflow-scrolling:auto}
+body{overscroll-behavior:none;position:fixed;top:0;left:0;right:0;bottom:0;overflow:hidden;width:100%;height:100%}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{-webkit-user-select:none;user-select:none;font-family:'Inter',sans-serif;font-size:14px;background:#0a0a0d;color:#f2f2f7;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;accent-color:#3b82f6}
 input,textarea{-webkit-user-select:text;user-select:text}
@@ -1612,6 +1613,18 @@ function onWS(d){
   if(d.type==='react'){const msgs=gM();const arr=msgs[d.key];if(arr){const m=arr.find(x=>x.ts===d.ts);if(m){m.reactions=d.reactions;sM(msgs);if(activeChat)renderMsgs();}}}
   if(d.type==='presence'){const u=gU();if(u[d.username]){u[d.username].lastSeen=d.online?Date.now():(Date.now()-30000);sU(u);if(curTab==='chats')renderChats(document.getElementById('chat-srch').value);if(curTab==='contacts')renderContacts();}}
   if(d.type==='userlist'){const users=gU();d.users.forEach(usr=>{users[usr.username]={...users[usr.username],...usr};});sU(users);if(curTab==='contacts')renderContacts();}
+  if(d.type==='history'){
+    const msgs=gM();
+    Object.keys(d.messages||{}).forEach(k=>{
+      const local=msgs[k]||[];const remote=d.messages[k]||[];
+      const byTs={};local.forEach(m=>byTs[m.ts]=m);
+      remote.forEach(m=>{if(!byTs[m.ts])byTs[m.ts]=m;else byTs[m.ts]={...byTs[m.ts],...m};});
+      msgs[k]=Object.values(byTs).sort((a,b)=>a.ts-b.ts);
+    });
+    sM(msgs);
+    if(curTab==='chats')renderChats();
+    if(activeChat)renderMsgs();
+  }
 }
 async function syncFromServer(){
   if(!USE_SERVER)return;
@@ -1909,9 +1922,22 @@ function buildSettings(){
   list.appendChild(ver);
 }
 
-function closePage(id){document.getElementById(id).classList.remove('open');}
+function closePage(id){
+  const el=document.getElementById(id);el.classList.remove('open');
+  setTimeout(()=>{const pb=el.querySelector('.page-body');if(pb)pb.scrollTop=0;},350);
+}
 
 const CHANGELOG=[
+  {v:'1.16',d:'13 мая',cats:[
+    {n:isRu?'Синхронизация':'Sync',items:[
+      isRu?'Аккаунт работает на всех устройствах: вход с другого устройства подгружает всю историю':'Account works on any device: signing in from another device pulls full history',
+      isRu?'Сообщения автоматически синхронизируются после входа':'Messages auto-sync after login',
+    ]},
+    {n:isRu?'Стабильность':'Stability',items:[
+      isRu?'Запрет случайного обновления страницы свайпом сверху':'Pull-to-refresh disabled to prevent accidental reload',
+      isRu?'При выходе из подраздела прокрутка сбрасывается наверх':'Sub-page scroll resets to top when leaving',
+    ]},
+  ]},
   {v:'1.15',d:'12 мая',cats:[
     {n:isRu?'Чат':'Chat',items:[
       isRu?'Кнопка «три точки» в правом верхнем углу чата':'Three-dot button in chat top-right',
@@ -2342,7 +2368,7 @@ const WALLPAPERS=[
 function buildWPDataUrl(wp,opacity){
   if(!wp.svg)return null;
   const acc=getComputedStyle(document.body).getPropertyValue('--acc').trim()||'#3b82f6';
-  const svg=`<svg xmlns='http://www.w3.org/2000/svg' width='${wp.size}' height='${wp.size}'><g fill='${acc}' opacity='${opacity}'>${wp.svg}</g></svg>`;
+  const svg=`<svg xmlns='http://www.w3.org/2000/svg' width='${wp.size}' height='${wp.size}'><g fill='${acc}' stroke='${acc}' color='${acc}' opacity='${opacity}'>${wp.svg}</g></svg>`;
   return 'data:image/svg+xml;utf8,'+encodeURIComponent(svg);
 }
 function applyTheme(){const p=getPrefs();document.body.setAttribute('data-theme',p.theme||'blue');}
