@@ -9,8 +9,9 @@ const { WebSocketServer } = require('ws');
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = process.env.DATA_FILE || './data.json';
 
-let db = { users: {}, messages: {} };
+let db = { users: {}, messages: {}, groups: {} };
 try { db = { ...db, ...JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')) }; } catch (_) {}
+if (!db.groups) db.groups = {};
 let saveTimer = null;
 function save() {
   if (saveTimer) return;
@@ -142,6 +143,14 @@ wss.on('connection', ws => {
       ws.send(JSON.stringify({ type: 'auth-ok' }));
       const list = Object.values(db.users).map(publicUser);
       ws.send(JSON.stringify({ type: 'userlist', users: list }));
+      const myGroups = Object.values(db.groups).filter(g => g.members.includes(username));
+      ws.send(JSON.stringify({ type: 'groups', groups: myGroups }));
+      const groupMsgs = {};
+      for (const g of myGroups) {
+        const k = 'group::' + g.id;
+        if (db.messages[k]) groupMsgs[k] = db.messages[k];
+      }
+      ws.send(JSON.stringify({ type: 'group-history', messages: groupMsgs }));
       broadcastPresence(username, true);
       return;
     }
@@ -215,6 +224,89 @@ wss.on('connection', ws => {
       const target = (msg.username || '').toLowerCase().trim();
       const u = db.users[target];
       ws.send(JSON.stringify({ type: 'find-result', username: target, user: u ? publicUser(u) : null }));
+    }
+
+    if (msg.type === 'group-create') {
+      const id = 'g_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+      const name = String(msg.name || 'Group').slice(0, 50);
+      const members = Array.from(new Set([username, ...(msg.members || []).slice(0, 200)]));
+      db.groups[id] = {
+        id, name, members,
+        admins: { [username]: { tag: '' } },
+        owner: username,
+        avatar: msg.avatar || null,
+        createdAt: Date.now()
+      };
+      save();
+      const payload = { type: 'group-info', group: db.groups[id] };
+      for (const m of members) sendTo(m, payload);
+    }
+
+    if (msg.type === 'group-add') {
+      const g = db.groups[msg.id]; if (!g) return;
+      if (!g.members.includes(username)) return;
+      const add = String(msg.user || '').toLowerCase();
+      if (!db.users[add] || g.members.includes(add)) return;
+      g.members.push(add);
+      save();
+      const payload = { type: 'group-info', group: g };
+      for (const m of g.members) sendTo(m, payload);
+    }
+
+    if (msg.type === 'group-remove') {
+      const g = db.groups[msg.id]; if (!g) return;
+      if (!g.admins[username]) return;
+      const rem = String(msg.user || '').toLowerCase();
+      if (rem === g.owner) return;
+      g.members = g.members.filter(x => x !== rem);
+      delete g.admins[rem];
+      save();
+      const payload = { type: 'group-info', group: g };
+      for (const m of [...g.members, rem]) sendTo(m, payload);
+      sendTo(rem, { type: 'group-kicked', id: g.id });
+    }
+
+    if (msg.type === 'group-leave') {
+      const g = db.groups[msg.id]; if (!g) return;
+      if (username === g.owner) return;
+      g.members = g.members.filter(x => x !== username);
+      delete g.admins[username];
+      save();
+      const payload = { type: 'group-info', group: g };
+      for (const m of g.members) sendTo(m, payload);
+      sendTo(username, { type: 'group-kicked', id: g.id });
+    }
+
+    if (msg.type === 'group-admin') {
+      const g = db.groups[msg.id]; if (!g) return;
+      if (username !== g.owner) return;
+      const target = String(msg.user || '').toLowerCase();
+      if (!g.members.includes(target)) return;
+      if (msg.add) g.admins[target] = { tag: String(msg.tag || '').slice(0, 10) };
+      else if (target !== g.owner) delete g.admins[target];
+      save();
+      const payload = { type: 'group-info', group: g };
+      for (const m of g.members) sendTo(m, payload);
+    }
+
+    if (msg.type === 'group-send') {
+      const g = db.groups[msg.id]; if (!g) return;
+      if (!g.members.includes(username)) return;
+      const key = 'group::' + g.id;
+      const newMsg = {
+        from: username,
+        to: g.id,
+        text: (msg.text || '').slice(0, 2000),
+        ts: Date.now(),
+        read: false,
+        ...(msg.medias && msg.medias.length ? { medias: msg.medias } : {}),
+        ...(msg.replyTo ? { replyTo: msg.replyTo } : {})
+      };
+      db.messages[key] = db.messages[key] || [];
+      db.messages[key].push(newMsg);
+      save();
+      const payload = { type: 'group-msg', groupId: g.id, message: newMsg };
+      for (const m of g.members) sendTo(m, payload);
     }
 
     if (msg.type === 'ping') {
