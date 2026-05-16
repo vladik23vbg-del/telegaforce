@@ -1,16 +1,33 @@
 process.on(‘uncaughtException’, e => { console.error(‘UNCAUGHT:’, e); });
 process.on(‘unhandledRejection’, e => { console.error(‘UNHANDLED:’, e); });
 
+console.log(’[boot] starting Telegaforce server…’);
+
 const http = require(‘http’);
 const fs = require(‘fs’);
 const path = require(‘path’);
-const { WebSocketServer } = require(‘ws’);
+let WebSocketServer;
+try {
+WebSocketServer = require(‘ws’).WebSocketServer;
+console.log(’[boot] ws module loaded’);
+} catch (e) {
+console.error(’[boot] CRITICAL: failed to load ws module:’, e.message);
+process.exit(1);
+}
 
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = process.env.DATA_FILE || ‘./data.json’;
 
 let db = { users: {}, messages: {}, groups: {} };
-try { db = { …db, …JSON.parse(fs.readFileSync(DATA_FILE, ‘utf8’)) }; } catch (_) {}
+try {
+const raw = fs.readFileSync(DATA_FILE, ‘utf8’);
+db = { …db, …JSON.parse(raw) };
+console.log(’[boot] db loaded from ’ + DATA_FILE);
+} catch (e) {
+console.log(’[boot] starting with empty db (’ + e.code + ‘)’);
+}
+if (!db.users) db.users = {};
+if (!db.messages) db.messages = {};
 if (!db.groups) db.groups = {};
 
 const IRIS_USERNAME = ‘iris_bot’;
@@ -27,6 +44,7 @@ isBot: true,
 createdAt: Date.now(),
 lastSeen: Date.now()
 };
+console.log(’[boot] iris_bot user created’);
 }
 let saveTimer = null;
 function save() {
@@ -688,6 +706,11 @@ if (mention) return ‘✨ Я здесь!\n\nНапиши /help — покажу
 return null;
 }
 
-server.listen(PORT, () => {
-console.log(’Telegaforce server running on port ’ + PORT);
+server.on(‘error’, (e) => {
+console.error(’[server] error:’, e.code, e.message);
+process.exit(1);
+});
+
+server.listen(PORT, ‘0.0.0.0’, () => {
+console.log(’[boot] Telegaforce server running on port ’ + PORT);
 });
