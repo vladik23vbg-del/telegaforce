@@ -1,91 +1,91 @@
-process.on(‘uncaughtException’, e => { console.error(‘UNCAUGHT:’, e); });
-process.on(‘unhandledRejection’, e => { console.error(‘UNHANDLED:’, e); });
+process.on('uncaughtException', e => { console.error('UNCAUGHT:', e); });
+process.on('unhandledRejection', e => { console.error('UNHANDLED:', e); });
 
-console.log(’[boot] starting Telegaforce server…’);
+console.log('[boot] starting Telegaforce server…');
 
-const http = require(‘http’);
-const fs = require(‘fs’);
-const path = require(‘path’);
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
 let WebSocketServer;
 try {
-WebSocketServer = require(‘ws’).WebSocketServer;
-console.log(’[boot] ws module loaded’);
+WebSocketServer = require('ws').WebSocketServer;
+console.log('[boot] ws module loaded');
 } catch (e) {
-console.error(’[boot] CRITICAL: failed to load ws module:’, e.message);
+console.error('[boot] CRITICAL: failed to load ws module:', e.message);
 process.exit(1);
 }
 
 const PORT = process.env.PORT || 3000;
-const DATA_FILE = process.env.DATA_FILE || ‘./data.json’;
+const DATA_FILE = process.env.DATA_FILE || './data.json';
 
 let db = { users: {}, messages: {}, groups: {} };
 try {
-const raw = fs.readFileSync(DATA_FILE, ‘utf8’);
-db = { …db, …JSON.parse(raw) };
-console.log(’[boot] db loaded from ’ + DATA_FILE);
+const raw = fs.readFileSync(DATA_FILE, 'utf8');
+db = { ...db, ...JSON.parse(raw) };
+console.log('[boot] db loaded from ' + DATA_FILE);
 } catch (e) {
-console.log(’[boot] starting with empty db (’ + e.code + ‘)’);
+console.log('[boot] starting with empty db (' + e.code + ')');
 }
 if (!db.users) db.users = {};
 if (!db.messages) db.messages = {};
 if (!db.groups) db.groups = {};
 
-const IRIS_USERNAME = ‘iris_bot’;
+const IRIS_USERNAME = 'iris_bot';
 if (!db.users[IRIS_USERNAME]) {
 db.users[IRIS_USERNAME] = {
 username: IRIS_USERNAME,
-password: ‘**BOT_NO_LOGIN**’ + Math.random().toString(36),
-firstName: ‘Ирис’,
-lastName: ‘’,
-middleName: ‘’,
-display: ‘Ирис’,
+password: '**BOT_NO_LOGIN**' + Math.random().toString(36),
+firstName: 'Ирис',
+lastName: '',
+middleName: '',
+display: 'Ирис',
 avatar: null,
 isBot: true,
 createdAt: Date.now(),
 lastSeen: Date.now()
 };
-console.log(’[boot] iris_bot user created’);
+console.log('[boot] iris_bot user created');
 }
 let saveTimer = null;
 function save() {
 if (saveTimer) return;
 saveTimer = setTimeout(() => {
-try { fs.writeFileSync(DATA_FILE, JSON.stringify(db)); } catch (e) { console.error(‘save error’, e); }
+try { fs.writeFileSync(DATA_FILE, JSON.stringify(db)); } catch (e) { console.error('save error', e); }
 saveTimer = null;
 }, 500);
 }
 
 const server = http.createServer((req, res) => {
 const cors = {
-‘Access-Control-Allow-Origin’: ‘*’,
-‘Access-Control-Allow-Methods’: ‘GET, POST, PUT, DELETE, OPTIONS’,
-‘Access-Control-Allow-Headers’: ‘Content-Type’
+'Access-Control-Allow-Origin': '*',
+'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+'Access-Control-Allow-Headers': 'Content-Type'
 };
-if (req.method === ‘OPTIONS’) { res.writeHead(204, cors); res.end(); return; }
+if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
 
-if (req.url === ‘/’ || req.url === ‘/index.html’) {
+if (req.url === '/' || req.url === '/index.html') {
 try {
-const html = fs.readFileSync(path.join(__dirname, ‘index.html’));
-res.writeHead(200, { ‘Content-Type’: ‘text/html; charset=utf-8’ });
+const html = fs.readFileSync(path.join(__dirname, 'index.html'));
+res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
 res.end(html);
 } catch (e) {
-res.writeHead(404); res.end(‘index.html not found’);
+res.writeHead(404); res.end('index.html not found');
 }
 return;
 }
 
-if (req.url === ‘/api/register’ && req.method === ‘POST’) {
+if (req.url === '/api/register' && req.method === 'POST') {
 return readJSON(req, body => {
 const { username, password, firstName, lastName, middleName, avatar, display } = body;
 if (!username || !password || !firstName || !lastName) {
-return json(res, 400, { error: ‘Missing fields’ }, cors);
+return json(res, 400, { error: 'Missing fields' }, cors);
 }
-if (username === IRIS_USERNAME || username.toLowerCase().includes(‘iris_bot’)) return json(res, 409, { error: ‘Reserved username’ }, cors);
-if (db.users[username]) return json(res, 409, { error: ‘Username taken’ }, cors);
+if (username === IRIS_USERNAME || username.toLowerCase().includes('iris_bot')) return json(res, 409, { error: 'Reserved username' }, cors);
+if (db.users[username]) return json(res, 409, { error: 'Username taken' }, cors);
 db.users[username] = {
 username, password, firstName, lastName,
-middleName: middleName || ‘’,
-display: display || (firstName + ’ ’ + lastName),
+middleName: middleName || '',
+display: display || (firstName + ' ' + lastName),
 avatar: avatar || null,
 createdAt: Date.now(),
 lastSeen: Date.now()
@@ -96,39 +96,39 @@ json(res, 200, { ok: true, user: publicUser(db.users[username]) }, cors);
 });
 }
 
-if (req.url === ‘/api/login’ && req.method === ‘POST’) {
+if (req.url === '/api/login' && req.method === 'POST') {
 return readJSON(req, body => {
 const { username, password } = body;
 const u = db.users[username];
-if (!u || u.password !== password) return json(res, 401, { error: ‘Wrong credentials’ }, cors);
+if (!u || u.password !== password) return json(res, 401, { error: 'Wrong credentials' }, cors);
 u.lastSeen = Date.now();
 save();
 json(res, 200, { ok: true, user: publicUser(u) }, cors);
 });
 }
 
-if (req.url === ‘/api/users’ && req.method === ‘GET’) {
+if (req.url === '/api/users' && req.method === 'GET') {
 const list = Object.values(db.users).map(publicUser);
 return json(res, 200, list, cors);
 }
 
-if (req.url.startsWith(’/api/user/’) && req.method === ‘GET’) {
-const uname = decodeURIComponent(req.url.replace(’/api/user/’, ‘’)).toLowerCase().trim();
+if (req.url.startsWith('/api/user/') && req.method === 'GET') {
+const uname = decodeURIComponent(req.url.replace('/api/user/', '')).toLowerCase().trim();
 const u = db.users[uname];
-if (!u) return json(res, 404, { error: ‘Not found’ }, cors);
+if (!u) return json(res, 404, { error: 'Not found' }, cors);
 return json(res, 200, publicUser(u), cors);
 }
 
-if (req.url.startsWith(’/api/messages/’) && req.method === ‘GET’) {
-const key = decodeURIComponent(req.url.replace(’/api/messages/’, ‘’));
+if (req.url.startsWith('/api/messages/') && req.method === 'GET') {
+const key = decodeURIComponent(req.url.replace('/api/messages/', ''));
 return json(res, 200, db.messages[key] || [], cors);
 }
 
-if (req.url === ‘/api/delete-account’ && req.method === ‘POST’) {
+if (req.url === '/api/delete-account' && req.method === 'POST') {
 return readJSON(req, body => {
 const { username, password } = body;
 const u = db.users[username];
-if (!u || u.password !== password) return json(res, 401, { error: ‘Auth’ }, cors);
+if (!u || u.password !== password) return json(res, 401, { error: 'Auth' }, cors);
 delete db.users[username];
 for (const k of Object.keys(db.messages)) {
 if (k.includes(username)) delete db.messages[k];
@@ -139,40 +139,39 @@ json(res, 200, { ok: true }, cors);
 });
 }
 
-res.writeHead(404, cors); res.end(‘Not found’);
+res.writeHead(404, cors); res.end('Not found');
 });
 
 function readJSON(req, cb) {
-let data = ‘’;
+let data = '';
 let aborted = false;
-req.on(‘data’, c => {
+req.on('data', c => {
 if (aborted) return;
 data += c;
 if (data.length > 8 * 1024 * 1024) { aborted = true; cb({ _tooLarge: true }); req.destroy(); }
 });
-req.on(‘end’, () => { if (aborted) return; try { cb(JSON.parse(data)); } catch (e) { cb({}); } });
+req.on('end', () => { if (aborted) return; try { cb(JSON.parse(data)); } catch (e) { cb({}); } });
 }
 function json(res, code, body, cors) {
-res.writeHead(code, { …cors, ‘Content-Type’: ‘application/json’ });
+res.writeHead(code, { ...cors, 'Content-Type': 'application/json' });
 res.end(JSON.stringify(body));
 }
 function publicUser(u) {
 if (!u) return null;
-const { password, …rest } = u;
+const { password, ...rest } = u;
 return rest;
 }
 
 const wss = new WebSocketServer({ server });
 const clients = new Map();
 
-wss.on(‘connection’, ws => {
+wss.on('connection', ws => {
 let username = null;
 
-ws.on(‘message’, raw => {
+ws.on('message', raw => {
 let msg;
 try { msg = JSON.parse(raw); } catch (_) { return; }
 
-```
 if (msg.type === 'auth') {
   const u = db.users[msg.username];
   if (!u || u.password !== msg.password) { ws.send(JSON.stringify({ type: 'auth-fail' })); return; }
@@ -467,11 +466,10 @@ if (msg.type === 'group-send') {
 if (msg.type === 'ping') {
   const u = db.users[username]; if (u) { u.lastSeen = Date.now(); }
 }
-```
 
 });
 
-ws.on(‘close’, () => {
+ws.on('close', () => {
 if (!username) return;
 const set = clients.get(username);
 if (set) { set.delete(ws); if (set.size === 0) clients.delete(username); }
@@ -486,16 +484,16 @@ const data = JSON.stringify(payload);
 for (const ws of set) { try { ws.send(data); } catch (e) {} }
 }
 function broadcastChat(key, payload) {
-const parts = key.split(’::’);
-for (const p of parts) if (p && p !== ‘**fav**’) sendTo(p, payload);
+const parts = key.split('::');
+for (const p of parts) if (p && p !== '**fav**') sendTo(p, payload);
 }
 function broadcastPresence(uname, online) {
-const data = JSON.stringify({ type: ‘presence’, username: uname, online, ts: Date.now() });
+const data = JSON.stringify({ type: 'presence', username: uname, online, ts: Date.now() });
 for (const set of clients.values()) for (const ws of set) { try { ws.send(data); } catch (e) {} }
 }
 function broadcastUserlist() {
 const list = Object.values(db.users).map(publicUser);
-const data = JSON.stringify({ type: ‘userlist’, users: list });
+const data = JSON.stringify({ type: 'userlist', users: list });
 for (const set of clients.values()) for (const ws of set) { try { ws.send(data); } catch (e) {} }
 }
 
@@ -509,15 +507,15 @@ return p.edit && p.kick && p.addAdmin && p.delete && p.editMsgs;
 function parseDuration(s) {
 if (!s) return null;
 const low = s.toLowerCase().trim();
-if (low === ‘навсегда’ || low === ‘forever’ || low === ‘perm’) return -1;
+if (low === 'навсегда' || low === 'forever' || low === 'perm') return -1;
 const m = low.match(/^(\d+)\s*(день|дн|d|day|days|неделя|нед|w|week|weeks|час|ч|h|hour|hours|мин|m|min|месяц|мес|mo|month)?$/);
 if (!m) {
-if (low === ‘день’ || low === ‘1 день’) return 86400000;
-if (low === ‘неделя’ || low === ‘1 неделя’) return 7 * 86400000;
+if (low === 'день' || low === '1 день') return 86400000;
+if (low === 'неделя' || low === '1 неделя') return 7 * 86400000;
 return null;
 }
 const n = parseInt(m[1], 10);
-const unit = m[2] || ‘день’;
+const unit = m[2] || 'день';
 if (/(день|дн|d|day)/.test(unit)) return n * 86400000;
 if (/(неделя|нед|w|week)/.test(unit)) return n * 7 * 86400000;
 if (/(час|ч|h|hour)/.test(unit)) return n * 3600000;
@@ -527,116 +525,115 @@ return null;
 }
 
 function fmtDuration(ms) {
-if (ms === -1) return ‘навсегда’;
-if (ms >= 30 * 86400000) return Math.floor(ms / (30 * 86400000)) + ’ мес’;
-if (ms >= 86400000) return Math.floor(ms / 86400000) + ’ дн’;
-if (ms >= 3600000) return Math.floor(ms / 3600000) + ’ ч’;
-return Math.floor(ms / 60000) + ’ мин’;
+if (ms === -1) return 'навсегда';
+if (ms >= 30 * 86400000) return Math.floor(ms / (30 * 86400000)) + ' мес';
+if (ms >= 86400000) return Math.floor(ms / 86400000) + ' дн';
+if (ms >= 3600000) return Math.floor(ms / 3600000) + ' ч';
+return Math.floor(ms / 60000) + ' мин';
 }
 
 function handleIrisCommand(text, group, fromUser) {
 const t = text.trim();
 const lower = t.toLowerCase();
-const mention = lower.includes(’@’ + IRIS_USERNAME) || lower.includes(’@ирис’) || lower.includes(‘ирис,’);
-const firstWord = t.split(/\s+/)[0].toLowerCase().replace(’@’ + IRIS_USERNAME, ‘’).trim();
+const mention = lower.includes('@' + IRIS_USERNAME) || lower.includes('@ирис') || lower.includes('ирис,');
+const firstWord = t.split(/\s+/)[0].toLowerCase().replace('@' + IRIS_USERNAME, '').trim();
 const cmd = firstWord;
-const arg = t.replace(/^\S+\s*/, ‘’).trim();
+const arg = t.replace(/^\S+\s*/, '').trim();
 const fromName = (db.users[fromUser] && db.users[fromUser].display) || fromUser;
-const key = ‘group::’ + group.id;
+const key = 'group::' + group.id;
 const allMsgs = db.messages[key] || [];
 const isOwner = fromUser === group.owner;
 const isAdmin = isOwner || !!group.admins[fromUser];
-group.mod = group.mod || { rules: ‘’, warns: {}, bans: {}, mutes: {} };
+group.mod = group.mod || { rules: '', warns: {}, bans: {}, mutes: {} };
 
-if (lower === ‘правила’ || cmd === ‘/rules’) {
-if (!group.mod.rules) return ‘📜 ПРАВИЛА\n━━━━━━━━━━━━━━\n\nПравила ещё не установлены.\n\nАдмин может добавить:\n+Правила <текст>’;
-return ‘📜 ПРАВИЛА “’ + group.name + ‘”\n━━━━━━━━━━━━━━\n\n’ + group.mod.rules;
+if (lower === 'правила' || cmd === '/rules') {
+if (!group.mod.rules) return '📜 ПРАВИЛА\n━━━━━━━━━━━━━━\n\nПравила ещё не установлены.\n\nАдмин может добавить:\n+Правила <текст>';
+return '📜 ПРАВИЛА “' + group.name + '”\n━━━━━━━━━━━━━━\n\n' + group.mod.rules;
 }
 
-if (/^+правила\s+/i.test(t)) {
+if (/^\+правила\s+/i.test(t)) {
 if (!isAdmin) return null;
-if (!irisHasAllPerms(group)) return ‘⚠️ ТРЕБУЕТСЯ ДОСТУП\n━━━━━━━━━━━━━━\n\nДайте мне ВСЕ права админа\nчтобы я могла работать.’;
-const rules = t.replace(/^+правила\s+/i, ‘’).slice(0, 1500);
+if (!irisHasAllPerms(group)) return '⚠️ ТРЕБУЕТСЯ ДОСТУП\n━━━━━━━━━━━━━━\n\nДайте мне ВСЕ права админа\nчтобы я могла работать.';
+const rules = t.replace(/^\+правила\s+/i, '').slice(0, 1500);
 group.mod.rules = rules;
 save();
-return ‘✅ ПРАВИЛА СОХРАНЕНЫ\n━━━━━━━━━━━━━━\n\n’ + rules;
+return '✅ ПРАВИЛА СОХРАНЕНЫ\n━━━━━━━━━━━━━━\n\n' + rules;
 }
 
-if (lower === ‘мои варны’ || cmd === ‘/warns’) {
+if (lower === 'мои варны' || cmd === '/warns') {
 const w = (group.mod.warns[fromUser] || []).filter(x => !x.expires || x.expires > Date.now());
-if (w.length === 0) return ‘✨ ТВОИ ВАРНЫ\n━━━━━━━━━━━━━━\n\n📊 ◯ ◯ ◯   0 / 3\n\nУ тебя нет варнов, ’ + fromName + ‘!\nПродолжай в том же духе. 💜’;
-const dots = [‘◯’,‘◯’,‘◯’];
-for (let i = 0; i < w.length; i++) dots[i] = ‘⬤’;
-return ‘⚠️ ТВОИ ВАРНЫ\n━━━━━━━━━━━━━━\n\n📊 ’ + dots.join(’ ‘) + ’   ’ + w.length + ’ / 3\n\n’ + w.map((x, i) => (i + 1) + ‘. ’ + (x.reason || ‘без причины’) + ‘\n   └ от @’ + x.by).join(’\n\n’) + ‘\n\n⚡ При 3 варнах - автобан.’;
+if (w.length === 0) return '✨ ТВОИ ВАРНЫ\n━━━━━━━━━━━━━━\n\n📊 ◯ ◯ ◯   0 / 3\n\nУ тебя нет варнов, ' + fromName + '!\nПродолжай в том же духе. 💜';
+const dots = ['◯','◯','◯'];
+for (let i = 0; i < w.length; i++) dots[i] = '⬤';
+return '⚠️ ТВОИ ВАРНЫ\n━━━━━━━━━━━━━━\n\n📊 ' + dots.join(' ') + '   ' + w.length + ' / 3\n\n' + w.map((x, i) => (i + 1) + '. ' + (x.reason || 'без причины') + '\n   └ от @' + x.by).join('\n\n') + '\n\n⚡ При 3 варнах - автобан.';
 }
 
 if (!irisHasAllPerms(group)) {
-if (mention) return ‘⚠️ ТРЕБУЕТСЯ ДОСТУП\n━━━━━━━━━━━━━━\n\nДайте мне ВСЕ права админа\nчтобы я могла работать.’;
+if (mention) return '⚠️ ТРЕБУЕТСЯ ДОСТУП\n━━━━━━━━━━━━━━\n\nДайте мне ВСЕ права админа\nчтобы я могла работать.';
 return null;
 }
 
 if (!isAdmin) {
-if (mention) return ‘🔒 ДОСТУП ОГРАНИЧЕН\n━━━━━━━━━━━━━━\n\nЯ отвечаю только админам.’;
+if (mention) return '🔒 ДОСТУП ОГРАНИЧЕН\n━━━━━━━━━━━━━━\n\nЯ отвечаю только админам.';
 return null;
 }
 
-if (cmd === ‘/start’ || cmd === ‘старт’) return ’✨ Привет, ’ + fromName + ’! ✨\n\n━━━━━━━━━━━━━━\n💜 Меня зовут Ирис\n🏠 Группа: ’ + group.name + ‘\n━━━━━━━━━━━━━━\n\nЯ помогаю админам поддерживать порядок и развлекать участников.\n\n📖 Все команды: /help’;
+if (cmd === '/start' || cmd === 'старт') return '✨ Привет, ' + fromName + '! ✨\n\n━━━━━━━━━━━━━━\n💜 Меня зовут Ирис\n🏠 Группа: ' + group.name + '\n━━━━━━━━━━━━━━\n\nЯ помогаю админам поддерживать порядок и развлекать участников.\n\n📖 Все команды: /help';
 
-if (cmd === ‘/help’ || cmd === ‘помощь’) return ‘✨ КОМАНДЫ ИРИС ✨\n━━━━━━━━━━━━━━\n\n📊  ИНФОРМАЦИЯ\n• /stats - статистика группы\n• /me - твоя активность\n• /top - рейтинг участников\n\n🛡  МОДЕРАЦИЯ\n• Варн @юз <причина>\n   └ 3 варна = автобан\n• Мут @юз <срок>\n• Бан @юз <срок>\n• Кик @юз\n• Размут / Разбан @юз\n\n📜  ПРАВИЛА\n• правила - показать\n• +Правила <текст> - задать\n\n👤  ДЛЯ СЕБЯ\n• мои варны\n\n🎲  РАЗВЛЕЧЕНИЯ\n• /dice • /coin\n• /8ball • /random\n\n━━━━━━━━━━━━━━\n⏱  Сроки: 1 день, 2 часа,\n    неделя, месяц, навсегда’;
+if (cmd === '/help' || cmd === 'помощь') return '✨ КОМАНДЫ ИРИС ✨\n━━━━━━━━━━━━━━\n\n📊  ИНФОРМАЦИЯ\n• /stats - статистика группы\n• /me - твоя активность\n• /top - рейтинг участников\n\n🛡  МОДЕРАЦИЯ\n• Варн @юз <причина>\n   └ 3 варна = автобан\n• Мут @юз <срок>\n• Бан @юз <срок>\n• Кик @юз\n• Размут / Разбан @юз\n\n📜  ПРАВИЛА\n• правила - показать\n• +Правила <текст> - задать\n\n👤  ДЛЯ СЕБЯ\n• мои варны\n\n🎲  РАЗВЛЕЧЕНИЯ\n• /dice • /coin\n• /8ball • /random\n\n━━━━━━━━━━━━━━\n⏱  Сроки: 1 день, 2 часа,\n    неделя, месяц, навсегда';
 
-if (cmd === ‘/stats’) {
+if (cmd === '/stats') {
 const total = allMsgs.length;
 const today = allMsgs.filter(m => Date.now() - m.ts < 86400000).length;
 const week = allMsgs.filter(m => Date.now() - m.ts < 7 * 86400000).length;
-return ’📊 СТАТИСТИКА ГРУППЫ\n━━━━━━━━━━━━━━\n🏠 ’ + group.name + ’\n\n👥 Участников ··· ’ + group.members.length + ‘\n💬 Сообщений ····· ’ + total + ‘\n🌅 За сутки ······ ’ + today + ‘\n📅 За неделю ····· ’ + week + ‘\n\n👑 Владелец\n   └ @’ + group.owner;
+return '📊 СТАТИСТИКА ГРУППЫ\n━━━━━━━━━━━━━━\n🏠 ' + group.name + '\n\n👥 Участников ··· ' + group.members.length + '\n💬 Сообщений ····· ' + total + '\n🌅 За сутки ······ ' + today + '\n📅 За неделю ····· ' + week + '\n\n👑 Владелец\n   └ @' + group.owner;
 }
-if (cmd === ‘/me’) {
+if (cmd === '/me') {
 const my = allMsgs.filter(m => m.from === fromUser).length;
 const w = (group.mod.warns[fromUser] || []).filter(x => !x.expires || x.expires > Date.now()).length;
-const role = fromUser === group.owner ? ‘👑 Владелец’ : (group.admins[fromUser] ? ‘⭐ Админ’ : ‘👤 Участник’);
-return ‘👤 ТВОЙ ПРОФИЛЬ\n━━━━━━━━━━━━━━\n’ + fromName + ‘\n@’ + fromUser + ‘\n\n’ + role + ‘\n💬 Сообщений ··· ’ + my + ‘\n⚠️ Варнов ······ ’ + w + ’ / 3’;
+const role = fromUser === group.owner ? '👑 Владелец' : (group.admins[fromUser] ? '⭐ Админ' : '👤 Участник');
+return '👤 ТВОЙ ПРОФИЛЬ\n━━━━━━━━━━━━━━\n' + fromName + '\n@' + fromUser + '\n\n' + role + '\n💬 Сообщений ··· ' + my + '\n⚠️ Варнов ······ ' + w + ' / 3';
 }
-if (cmd === ‘/top’) {
+if (cmd === '/top') {
 const counts = {};
 allMsgs.forEach(m => { if (m.from !== IRIS_USERNAME) counts[m.from] = (counts[m.from] || 0) + 1; });
 const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10);
-if (sorted.length === 0) return ‘📈 ТОП АКТИВНЫХ\n━━━━━━━━━━━━━━\n\nПока что нет активности.\nНапиши первое сообщение!’;
-const medals = [‘🥇’, ‘🥈’, ‘🥉’, ‘4.’, ‘5.’, ‘6.’, ‘7.’, ‘8.’, ‘9.’, ‘10.’];
-return ‘📈 ТОП АКТИВНЫХ\n━━━━━━━━━━━━━━\n\n’ + sorted.map((s, i) => medals[i] + ’ @’ + s[0] + ’ · ’ + s[1] + ’ соо.’).join(’\n’);
+if (sorted.length === 0) return '📈 ТОП АКТИВНЫХ\n━━━━━━━━━━━━━━\n\nПока что нет активности.\nНапиши первое сообщение!';
+const medals = ['🥇', '🥈', '🥉', '4.', '5.', '6.', '7.', '8.', '9.', '10.'];
+return '📈 ТОП АКТИВНЫХ\n━━━━━━━━━━━━━━\n\n' + sorted.map((s, i) => medals[i] + ' @' + s[0] + ' · ' + s[1] + ' соо.').join('\n');
 }
-if (cmd === ‘/dice’) {
+if (cmd === '/dice') {
 const n = Math.floor(Math.random() * 6) + 1;
-const dice = [‘⚀’,‘⚁’,‘⚂’,‘⚃’,‘⚄’,‘⚅’];
-return ‘🎲 КУБИК\n━━━━━━━━━━\n\n’ + dice[n-1] + ’  ’ + fromName + ’ выбросил ’ + n;
+const dice = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+return '🎲 КУБИК\n━━━━━━━━━━\n\n' + dice[n-1] + '  ' + fromName + ' выбросил ' + n;
 }
-if (cmd === ‘/coin’) {
+if (cmd === '/coin') {
 const r = Math.random() < 0.5;
-return ‘🪙 МОНЕТКА\n━━━━━━━━━━\n\n’ + (r ? ‘👑 Орёл’ : ‘🐍 Решка’);
+return '🪙 МОНЕТКА\n━━━━━━━━━━\n\n' + (r ? '👑 Орёл' : '🐍 Решка');
 }
-if (cmd === ‘/8ball’) {
-if (!arg) return ‘🎱 МАГИЧЕСКИЙ ШАР\n━━━━━━━━━━━━━━\n\nЗадай вопрос:\n/8ball <твой вопрос>’;
-const answers = [‘Да, определённо’,‘Можешь не сомневаться’,‘Безусловно’,‘Скорее всего’,‘Знаки указывают на “да”’,‘Звёзды говорят “да”’,‘Спроси позже’,‘Не сейчас’,‘Туманно, попробуй снова’,‘Я бы не рассчитывал’,‘Очень сомневаюсь’,‘Нет’,‘Категорическое нет’,‘Звёзды против’];
-return ’🎱 МАГИЧЕСКИЙ ШАР\n━━━━━━━━━━━━━━\n\n❓ ’ + arg + ’\n\n💫 ’ + answers[Math.floor(Math.random() * answers.length)];
+if (cmd === '/8ball') {
+if (!arg) return '🎱 МАГИЧЕСКИЙ ШАР\n━━━━━━━━━━━━━━\n\nЗадай вопрос:\n/8ball <твой вопрос>';
+const answers = ['Да, определённо','Можешь не сомневаться','Безусловно','Скорее всего','Знаки указывают на “да”','Звёзды говорят “да”','Спроси позже','Не сейчас','Туманно, попробуй снова','Я бы не рассчитывал','Очень сомневаюсь','Нет','Категорическое нет','Звёзды против'];
+return '🎱 МАГИЧЕСКИЙ ШАР\n━━━━━━━━━━━━━━\n\n❓ ' + arg + '\n\n💫 ' + answers[Math.floor(Math.random() * answers.length)];
 }
-if (cmd === ‘/random’) {
+if (cmd === '/random') {
 const n = parseInt(arg, 10);
-if (!n || n < 1) return ‘🎲 СЛУЧАЙНОЕ ЧИСЛО\n━━━━━━━━━━━━━━\n\nИспользуй: /random 100’;
-return ’🎲 СЛУЧАЙНОЕ ЧИСЛО\n━━━━━━━━━━━━━━\n\nДиапазон: 1 - ’ + n + ’\n✨ Выпало: ’ + (Math.floor(Math.random() * n) + 1);
+if (!n || n < 1) return '🎲 СЛУЧАЙНОЕ ЧИСЛО\n━━━━━━━━━━━━━━\n\nИспользуй: /random 100';
+return '🎲 СЛУЧАЙНОЕ ЧИСЛО\n━━━━━━━━━━━━━━\n\nДиапазон: 1 - ' + n + '\n✨ Выпало: ' + (Math.floor(Math.random() * n) + 1);
 }
 
 const modCmd = firstWord;
-if ([‘варн’,‘warn’,‘муд’,‘мут’,‘mute’,‘бан’,‘ban’,‘кик’,‘kick’,‘разбан’,‘unban’,‘размуд’,‘размут’,‘unmute’].includes(modCmd)) {
-const rest = t.replace(/^\S+\s*/, ‘’).trim();
+if (['варн','warn','муд','мут','mute','бан','ban','кик','kick','разбан','unban','размуд','размут','unmute'].includes(modCmd)) {
+const rest = t.replace(/^\S+\s*/, '').trim();
 const um = rest.match(/^@?(\w+)\s*(.*)$/);
-if (!um) return ‘⚠️ Формат: ’ + modCmd + ’ @username <причина или срок>’;
+if (!um) return '⚠️ Формат: ' + modCmd + ' @username <причина или срок>';
 const target = um[1].toLowerCase();
-const tail = (um[2] || ‘’).trim();
-if (target === IRIS_USERNAME) return ‘😏 Меня нельзя.’;
-if (target === group.owner) return ‘👑 Владельца нельзя.’;
-if (!group.members.includes(target) && ![‘разбан’,‘unban’].includes(modCmd)) return ‘❓ @’ + target + ’ не в группе.’;
+const tail = (um[2] || '').trim();
+if (target === IRIS_USERNAME) return '😏 Меня нельзя.';
+if (target === group.owner) return '👑 Владельца нельзя.';
+if (!group.members.includes(target) && !['разбан','unban'].includes(modCmd)) return '❓ @' + target + ' не в группе.';
 const targetName = (db.users[target] && db.users[target].display) || target;
 
-```
 if (['варн','warn'].includes(modCmd)) {
   group.mod.warns[target] = group.mod.warns[target] || [];
   group.mod.warns[target] = group.mod.warns[target].filter(x => !x.expires || x.expires > Date.now());
@@ -698,19 +695,18 @@ if (['кик','kick'].includes(modCmd)) {
   for (const m of group.members) sendTo(m, payload);
   return '👋 УЧАСТНИК УДАЛЁН\n━━━━━━━━━━━━━━\n\n👤 @' + target + ' выгнан из группы.';
 }
-```
 
 }
 
-if (mention) return ‘✨ Я здесь!\n\nНапиши /help - покажу что умею.’;
+if (mention) return '✨ Я здесь!\n\nНапиши /help - покажу что умею.';
 return null;
 }
 
-server.on(‘error’, (e) => {
-console.error(’[server] error:’, e.code, e.message);
+server.on('error', (e) => {
+console.error('[server] error:', e.code, e.message);
 process.exit(1);
 });
 
-server.listen(PORT, ‘0.0.0.0’, () => {
-console.log(’[boot] Telegaforce server running on port ’ + PORT);
+server.listen(PORT, '0.0.0.0', () => {
+console.log('[boot] Telegaforce server running on port ' + PORT);
 });
